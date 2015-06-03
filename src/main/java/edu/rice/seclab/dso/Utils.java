@@ -1,6 +1,8 @@
 package edu.rice.seclab.dso;
 
 import java.nio.ByteBuffer;
+
+import com.google.common.primitives.UnsignedInteger;
 import com.google.common.primitives.UnsignedLong;
 
 
@@ -56,4 +58,18 @@ public class Utils {
         buffer.flip();//need flip 
         return buffer.getLong();
     }
+	
+	public static Long tryParseHexLongNumber (String value) {
+		try {
+			return UnsignedLong.valueOf(value, 16).longValue();
+		}catch (Exception ex) {}
+		return UnsignedLong.valueOf(value.replace("0x", ""), 16).longValue();		
+	}
+	
+	public static Integer tryParseHexNumber (String value) {
+		try {
+			return UnsignedInteger.valueOf(value, 16).intValue();
+		}catch (Exception ex) {}
+		return UnsignedInteger.valueOf(value.replace("0x", ""), 16).intValue();		
+	}
 }
