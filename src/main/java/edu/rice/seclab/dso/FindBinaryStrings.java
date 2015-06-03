@@ -11,6 +11,7 @@ import java.util.List;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
@@ -25,7 +26,12 @@ public class FindBinaryStrings {
 	public static final String NUM_THREADS = "numThreads";
 
 	public static final String BINARY_STRING_FILE = "binaryStringFile";
+	public static final String HELP_ME = "help";
 
+	@SuppressWarnings("static-access")
+	static Option myHelpOption = new Option(HELP_ME, "print the help message" );
+
+	
 	@SuppressWarnings("static-access")
 	static Option myBinaryStringFileOption = OptionBuilder.withArgName( "file" )
     .hasArg()
@@ -41,7 +47,7 @@ public class FindBinaryStrings {
 	@SuppressWarnings("static-access")
 	static Option myMemDumpFileOption = OptionBuilder.withArgName( "file" )
 		    .hasArg()
-		    .withDescription(  "binary memory dump file" ).isRequired(true)
+		    .withDescription(  "binary memory dump file" )
 		    .create( BINARY_FILE );
 	
 	@SuppressWarnings("static-access")
@@ -51,7 +57,8 @@ public class FindBinaryStrings {
 		    .create( START_OFFSET );
 	
 	public static Options myOptions = new Options().addOption(myBinaryStringFileOption)
-			.addOption(myNumThreadsOption).addOption(myOffsetOption).addOption(myMemDumpFileOption);
+			.addOption(myNumThreadsOption).addOption(myOffsetOption).addOption(myMemDumpFileOption)
+			.addOption(myHelpOption);
 	
 	// Hash Table mapping hash values to key bytes
 	HashMap<Long, BinaryStringInfo> hashToKeys = new HashMap<Long, BinaryStringInfo>();
@@ -144,6 +151,14 @@ public class FindBinaryStrings {
 			return;
 		}
 		
+		if (cli.hasOption(HELP_ME)) {
+			HelpFormatter hf = new HelpFormatter();
+			hf.printHelp("jbgrep", FindBinaryStrings.getOptions());
+			return;
+		} else if (!cli.hasOption(BINARY_FILE)) {
+			System.err.println(String.format("jbgrep error: %s is required.", BINARY_FILE));
+			return;
+		}
 		
 		Integer numThreads = Utils.tryParseHexNumber(num_scanning_threads);
 		Long offset = Utils.tryParseHexLongNumber(offset_start);
