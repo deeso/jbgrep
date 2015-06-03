@@ -1,13 +1,14 @@
 package edu.rice.seclab.dso;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 import com.google.common.primitives.UnsignedInteger;
 import com.google.common.primitives.UnsignedLong;
 
 
 public class Utils {
-	private static ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+	
 	
 	public static String unsigned_long_str (long val) {
 		return UnsignedLong.valueOf(val).toString();
@@ -54,9 +55,16 @@ public class Utils {
 	}
 	
 	public static long bytesToLong(byte[] bytes) {
-        buffer.put(bytes, 0, bytes.length);
-        buffer.flip();//need flip 
-        return buffer.getLong();
+		int len = Long.BYTES;
+		byte[] tbytes = bytes;
+		if (bytes.length != len)
+			tbytes = new byte[len];
+			for (int i = 0; i < len && i < bytes.length; i++)
+				tbytes[i] = bytes[i];
+		ByteBuffer byteBuffer = ByteBuffer.wrap(tbytes);
+        //byteBuffer.flip();//need flip
+        byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+        return byteBuffer.getLong();
     }
 	
 	public static Long tryParseHexLongNumber (String value) {

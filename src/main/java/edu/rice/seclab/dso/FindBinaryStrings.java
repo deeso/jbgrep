@@ -19,13 +19,13 @@ import org.apache.commons.cli.ParseException;
 
 @SuppressWarnings("deprecation")
 public class FindBinaryStrings {
-	public static final String BINARY_FILE = "memoryDumpFile";
+	public static final String BINARY_FILE = "binaryFile";
 
 	private static final String START_OFFSET = "startOffset";
 
 	public static final String NUM_THREADS = "numThreads";
 
-	public static final String BINARY_STRING_FILE = "binaryStringFile";
+	public static final String BINARY_STRING_FILE = "binaryStrings";
 	public static final String HELP_ME = "help";
 
 	@SuppressWarnings("static-access")

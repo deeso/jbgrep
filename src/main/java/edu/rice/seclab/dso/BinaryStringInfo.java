@@ -17,8 +17,8 @@ public class BinaryStringInfo {
 	public BinaryStringInfo(String binaryString) {
 		myKeyValue = binaryString;
 		myKeyBytes = getKeyBytes();
-		_keyBytes = new byte[8];
-		for (int i = 0; i < 8; i++) {
+		_keyBytes = new byte[Long.BYTES];
+		for (int i = 0; i < Long.BYTES; i++) {
 			_keyBytes[i] = myKeyBytes[i];
 		}
 		myHash = Utils.bytesToLong(_keyBytes);
@@ -27,8 +27,8 @@ public class BinaryStringInfo {
 	public BinaryStringInfo(String binaryString, byte[] keyBytes, long hash) {
 		myKeyValue = binaryString;
 		myKeyBytes = keyBytes;
-		_keyBytes = new byte[8];
-		for (int i = 0; i < 8; i++) {
+		_keyBytes = new byte[Long.BYTES];
+		for (int i = 0; i < Long.BYTES; i++) {
 			_keyBytes[i] = myKeyBytes[i];
 		}
 		myHash = hash;
