@@ -10,42 +10,32 @@ public class BinaryStringInfo {
 	Long myHash;
 	String myKeyValue;
 	byte[] myKeyBytes;
-	byte[] _keyBytes;
+	
 	
 	HashMap<String, HashSet<String>> myLocations = new HashMap<String, HashSet<String>>();
+	private int myKeyLen;
+	IHashFunction myHashFn = null;
 	
-	public BinaryStringInfo(String binaryString) {
+	public BinaryStringInfo(String binaryString, IHashFunction hashFn) {
 		myKeyValue = binaryString;
 		myKeyBytes = getKeyBytes();
-		_keyBytes = new byte[Long.BYTES];
-		for (int i = 0; i < Long.BYTES; i++) {
-			_keyBytes[i] = myKeyBytes[i];
-		}
-		myHash = Utils.bytesToLong(_keyBytes);
+		myKeyLen = myKeyBytes.length;
+		myHash = myHashFn.executeHash(myKeyBytes);
 	}
 	
-	public BinaryStringInfo(String binaryString, byte[] keyBytes, long hash) {
-		myKeyValue = binaryString;
-		myKeyBytes = keyBytes;
-		_keyBytes = new byte[Long.BYTES];
-		for (int i = 0; i < Long.BYTES; i++) {
-			_keyBytes[i] = myKeyBytes[i];
-		}
-		myHash = hash;
-	}
-	
-	public boolean match(byte[] bytes) {
-		boolean _match = false;
-		if (bytes.length < myKeyBytes.length) return _match;
-		for (int i = 0; i < myKeyBytes.length; i++){
-			_match = myKeyBytes[i] == bytes[i];
-			if (!_match) break;
-		}
-		return _match;
-	}
+//	public BinaryStringInfo(String binaryString, byte[] keyBytes, long hash) {
+//		myKeyValue = binaryString;
+//		myKeyBytes = keyBytes;
+//		myHash = hash;
+//		myKeyLen = myKeyBytes.length;
+//	}
 	
 	public boolean matchAdd(byte[] bytes, String filename, long offset) {
-		if (match(bytes)) {
+		return matchAdd(bytes, 0, filename, offset);
+	}
+
+	public boolean matchAdd(byte[] bytes, int bufOff, String filename, long offset) {
+		if (myHashFn.match(bytes, bufOff, myKeyBytes)) {
 			addFileOffset(filename, offset);
 			return true;
 		}
@@ -60,8 +50,12 @@ public class BinaryStringInfo {
 		return myKeyValue;
 	}
 
+	public int getKeyLen(){
+		return myKeyLen;
+	}
+	
 	public byte[] getKeyBytes(){
-		return Utils.unhexlify(myKeyValue);
+		return myKeyBytes;
 	}
 	
 	public void addFileOffset(String filename, Long fileoffset) {

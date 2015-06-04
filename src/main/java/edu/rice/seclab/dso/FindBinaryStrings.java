@@ -5,10 +5,12 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -19,10 +21,13 @@ import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
+
+
 @SuppressWarnings("deprecation")
 public class FindBinaryStrings {
+	ArrayList<File> myTargetFiles = null;
 	public static final String BINARY_FILE = "binaryFile";
-
+	
 	private static final String START_OFFSET = "startOffset";
 
 	public static final String NUM_THREADS = "numThreads";
@@ -30,7 +35,7 @@ public class FindBinaryStrings {
 	public static final String BINARY_STRING_FILE = "binaryStrings";
 	public static final String HELP_ME = "help";
 
-	@SuppressWarnings("static-access")
+	
 	static Option myHelpOption = new Option(HELP_ME, "print the help message" );
 
 	
@@ -63,68 +68,106 @@ public class FindBinaryStrings {
 			.addOption(myHelpOption);
 	
 	// Hash Table mapping hash values to key bytes
-	HashMap<Long, BinaryStringInfo> hashToKeys = new HashMap<Long, BinaryStringInfo>();
+	HashMap<Long, BinaryStringInfo> myBinaryStringInfoMap = new HashMap<Long, BinaryStringInfo>();
 	HashMap<String, ArrayList<BinaryStringInfo>> msToKeys = new HashMap<String, ArrayList<BinaryStringInfo>>();
 
 	HashMap<String, ArrayList<String>> keysToFileOffset = new HashMap<String, ArrayList<String>>();
 	
 	Integer myNumThreads = 1;
-	Long myOffsetStart;
+	Long myStartOffset;
 	private String myMemDump;
-	private String myBinaryStringsFile;
-	private boolean myUsingFile;
-	private long binaryFileSize = 0;
-	private long chunkSize = -1;
-	private boolean needCleanup = false;
-	private boolean running = false;
+	private File myBinaryStringsFile = null;
+	
+	ExecutorService myExecutor = null;
+	
+	ArrayList<Future<?>> myThreadFutures = new ArrayList<Future<?>>();
 	
 	public FindBinaryStrings(List<String> binary_strings,
 			String memory_dump_file, Long offset, Integer numThreads) {
 		
-		myBinaryStringsFile =  null;
 		myMemDump = memory_dump_file;
 		myNumThreads = numThreads;
-		myOffsetStart = offset;
-		myUsingFile = false;
+		myStartOffset = offset;
 		for (String s : binary_strings) {
 			addBinaryString(s);
 		}
+		myExecutor = Executors.newFixedThreadPool(numThreads);
+		myTargetFiles = Utils.readDirectoryFilenames(myMemDump);
 	}
 	
 	public FindBinaryStrings(String binary_strings_file,
 			String memory_dump_file, Long offset, Integer numThreads) throws FileNotFoundException {
-		myBinaryStringsFile = binary_strings_file;
+		myBinaryStringsFile = new File(binary_strings_file);
 		myMemDump = memory_dump_file;
 		myNumThreads = numThreads;
-		myOffsetStart = offset;
-		myUsingFile = true;
-		readStrings();
-		readBinaryFileSize();
+		myStartOffset = offset;
+		readBinaryStringsFromFile();
+		myExecutor = Executors.newFixedThreadPool(numThreads);
+		myTargetFiles = Utils.readDirectoryFilenames(myMemDump);
 	}
 
-	void readBinaryFileSize() throws FileNotFoundException{
-		File file = new File(myMemDump);
-		binaryFileSize = file.length();
-		if (myNumThreads > 0) chunkSize = binaryFileSize/myNumThreads;
-		if (binaryFileSize % myNumThreads !=  0) needCleanup = true;
-	}
 	
 	void addBinaryString(String key) {
 		try{
-			BinaryStringInfo bsi = new BinaryStringInfo(key);
-			synchronized (hashToKeys) {
-				hashToKeys.put(bsi.getHash(), bsi);
+			BinaryStringInfo bsi = new BinaryStringInfo(key, Utils.DefaultHasher());
+			synchronized (myBinaryStringInfoMap) {
+				myBinaryStringInfoMap.put(bsi.getHash(), bsi);
 			}			
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();			
 		}	
 	}
 	
-	void performScan(String filename, long offset, long chunkSize) throws IOException {
-		CircularFifoBuffer buffer = new CircularFifoBuffer(8);
-		RandomAccessFile fhandle = new RandomAccessFile (filename, "r");
-		fhandle.seek(offset);
+	
+	void executeFileScans() {
+		System.out.println("Starting the binary string search");
+		for (File file : myTargetFiles) {
+			performFileScan(file);
+		}
+		
+		while(!myThreadFutures.isEmpty()) {
+			Future<?> p = myThreadFutures.get(0);
+			if (p.isDone()) {
+				myThreadFutures.remove(0);
+			} else {
+				System.out.println(String.format("Waiting on %d threads to complete.", myThreadFutures.size()));
+				try {
+					Thread.sleep(1000);
+				} catch (InterruptedException e) {
+					// Dont know if i care about this
+					e.printStackTrace();
+				}
+			}
+		}
+		
+	}
+	
+	void performFileScan(File file) {
+		
+		if (myBinaryStringInfoMap.isEmpty() || 
+			!file.exists() || 
+			!file.isFile()){
+			// nothing to do there there are no patterns
+			// or this is not a valid file
+			return;
+		}
+		
+		long fileSize = file.length();
+		long chunkSz = fileSize/myNumThreads;
+		for (long offset = myStartOffset; offset < fileSize; offset += chunkSz) {
+			Runnable cp = null;
+			if (offset + chunkSz > fileSize) {
+				cp = new ChunkProcessor(file, offset, fileSize - offset, myBinaryStringInfoMap, Utils.DefaultHasher());
+			} else {
+				cp = new ChunkProcessor(file, offset, chunkSz, myBinaryStringInfoMap, Utils.DefaultHasher());
+			}
+			System.err.println(String.format("Unable to initialize the file scan for %s", file.getAbsolutePath()));
+			if (cp != null){
+				Future<?> p = myExecutor.submit(cp);
+				myThreadFutures.add(p);
+			}
+				
+		}
 	}
 
 	
@@ -132,24 +175,26 @@ public class FindBinaryStrings {
 		return myOptions;
 	}
 	
-	void readStrings () {
-		BufferedReader br;
-		try {
-			br = new BufferedReader(new FileReader(myBinaryStringsFile));
-		    for(String line; (line = br.readLine()) != null; ) {
-		        // process the line.
-		    	addBinaryString(line);
-		    }
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+	void readBinaryStringsFromFile () {
+		if (myBinaryStringsFile.exists()) {
+			BufferedReader br;
+			try {
+				br = new BufferedReader(new FileReader(myBinaryStringsFile));
+			    for(String line; (line = br.readLine()) != null; ) {
+			        // process the line.
+			    	addBinaryString(line);
+			    }
+			} catch (FileNotFoundException e) {
+				// this should not happen unless the file is deleted when we start
+				e.printStackTrace();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}			
 		}
+
 	}
 	
-	public static void main(String[] args) {
+	public static void main(String[] args) throws FileNotFoundException {
 		FindBinaryStrings fbs = null;		
 		CommandLineParser parser = new DefaultParser();
 		CommandLine cli;
@@ -165,7 +210,7 @@ public class FindBinaryStrings {
 			if (cli.hasOption(START_OFFSET)) offset_start = cli.getOptionValue(START_OFFSET);
 
 		} catch (ParseException e) {
-			// TODO Auto-generated catch block
+			
 			e.printStackTrace();
 			return;
 		}
