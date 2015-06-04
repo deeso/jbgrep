@@ -1,9 +1,11 @@
 package edu.rice.seclab.dso;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -71,6 +73,10 @@ public class FindBinaryStrings {
 	private String myMemDump;
 	private String myBinaryStringsFile;
 	private boolean myUsingFile;
+	private long binaryFileSize = 0;
+	private long chunkSize = -1;
+	private boolean needCleanup = false;
+	private boolean running = false;
 	
 	public FindBinaryStrings(List<String> binary_strings,
 			String memory_dump_file, Long offset, Integer numThreads) {
@@ -86,15 +92,23 @@ public class FindBinaryStrings {
 	}
 	
 	public FindBinaryStrings(String binary_strings_file,
-			String memory_dump_file, Long offset, Integer numThreads) {
+			String memory_dump_file, Long offset, Integer numThreads) throws FileNotFoundException {
 		myBinaryStringsFile = binary_strings_file;
 		myMemDump = memory_dump_file;
 		myNumThreads = numThreads;
 		myOffsetStart = offset;
 		myUsingFile = true;
 		readStrings();
+		readBinaryFileSize();
 	}
 
+	void readBinaryFileSize() throws FileNotFoundException{
+		File file = new File(myMemDump);
+		binaryFileSize = file.length();
+		if (myNumThreads > 0) chunkSize = binaryFileSize/myNumThreads;
+		if (binaryFileSize % myNumThreads !=  0) needCleanup = true;
+	}
+	
 	void addBinaryString(String key) {
 		try{
 			BinaryStringInfo bsi = new BinaryStringInfo(key);
@@ -104,14 +118,19 @@ public class FindBinaryStrings {
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();			
-		}
-		
+		}	
+	}
+	
+	void performScan(String filename, long offset, long chunkSize) throws IOException {
+		CircularFifoBuffer buffer = new CircularFifoBuffer(8);
+		RandomAccessFile fhandle = new RandomAccessFile (filename, "r");
+		fhandle.seek(offset);
 	}
 
+	
 	public static Options getOptions() {
 		return myOptions;
 	}
-
 	
 	void readStrings () {
 		BufferedReader br;
