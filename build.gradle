@@ -1,14 +1,30 @@
 apply plugin: 'java'
 apply plugin: 'eclipse'
+apply plugin: 'application'
+//appy plugin: 'fatjar'
 
-sourceCompatibility = 1.5
+sourceCompatibility = 1.7
 version = '1.0'
-jar {
+//mainClassName = 'edu.rice.seclab.dso.JBGrep'
+
+task fatJar(type: Jar) {
+    baseName = project.name + '-all'
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
     manifest {
-        attributes 'Implementation-Title': 'Gradle Quickstart',
-                   'Implementation-Version': version
+        attributes 'Implementation-Title': 'JBGrep',
+                   'Implementation-Version': version,
+                   'Main-Class' : 'edu.rice.seclab.dso.JBGrep'
     }
-}
+} 
+
+
+//jar {
+//    manifest {
+//        attributes 'Implementation-Title': 'jbgrep',
+//                   'Implementation-Version': version
+//    }
+//}
 
 repositories {
     mavenCentral()

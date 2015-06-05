@@ -6,5 +6,4 @@ public interface IHashFunction {
 	public long getRequiredBytes();
 	public boolean match(byte[] lhs, byte [] rhs);
 	public boolean match(byte[] lhs, int lhs_offset, byte [] rhs);
-	//public IHashFunction getInstance();
 }

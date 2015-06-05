@@ -21,10 +21,11 @@ public class ChunkProcessor extends Thread {
 	String myFilename;
 	Integer matches = 0;
 	File myFile;
+	private boolean myLiveUpdate = false;
 	
 
 	public ChunkProcessor(File file, long offset, long chunk_size,
-			HashMap<Long, BinaryStringInfo> binaryKInfo, IHashFunction hasher){
+			HashMap<Long, BinaryStringInfo> binaryKInfo, IHashFunction hasher, boolean liveUpdate){
 		myChunkSize = chunk_size;
 		myFile = file;
 		myFilename = myFile.getAbsolutePath();
@@ -36,6 +37,7 @@ public class ChunkProcessor extends Thread {
 			if (klen > myMaxKeyLength)
 				myMaxKeyLength = klen;
 		}
+		myLiveUpdate = liveUpdate;
 
 	}
 
@@ -83,9 +85,9 @@ public class ChunkProcessor extends Thread {
 			try {
 				//System.out.println(String.format("@ %08x + %08x (base:%08x and offset:%08x) = %08x", pos, myBaseOffset + myChunkOffset, myBaseOffset, myChunkOffset,  pos + myBaseOffset + myChunkOffset));
 				hash = myHashFn.executeHash(data, pos);
-				if (hash == 0xe951feffff8d02e8L){
-					System.out.println("Here.");
-				}
+				//if (hash == 0xe951feffff8d02e8L){
+				//	System.out.println("Here.");
+				//}
 				//System.out.println(String.format("%08x hash @ %08x", hash, pos));
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
@@ -95,8 +97,12 @@ public class ChunkProcessor extends Thread {
 			if (myBinaryKeyInfo.containsKey(hash)) {
 				BinaryStringInfo bi = myBinaryKeyInfo.get(hash);
 				long offset = calculateActualOffset(pos);
-				if (bi.matchAdd(data, pos, myFilename, offset))
+				if (bi.matchAdd(data, pos, myFilename, offset)) {
 					foundOne();
+					if (myLiveUpdate) Utils.foundKey(bi.getKey(), myFilename, offset);
+				}
+					
+					
 			}
 		}
 		return matches;

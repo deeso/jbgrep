@@ -7,6 +7,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -20,13 +21,19 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.lang3.StringUtils;
+
+import com.google.common.primitives.UnsignedLong;
 
 
 
 @SuppressWarnings("deprecation")
-public class FindBinaryStrings {
+public class JBGrep {
 	ArrayList<File> myTargetFiles = null;
 	public static final String BINARY_FILE = "binaryFile";
+	public static final String LIVE_UPDATE = "liveUpdate";
+	public static final String GREP_OUTPUT = "grepOutput";
+	public static final String BY_FILENAME_OUTPUT = "byFilenameOutput";
 	
 	private static final String START_OFFSET = "startOffset";
 
@@ -37,6 +44,7 @@ public class FindBinaryStrings {
 
 	
 	static Option myHelpOption = new Option(HELP_ME, "print the help message" );
+	static Option myLiveUpdateOption = new Option(LIVE_UPDATE, "produce a live update on each hit" );
 
 	
 	@SuppressWarnings("static-access")
@@ -58,14 +66,27 @@ public class FindBinaryStrings {
 		    .create( BINARY_FILE );
 	
 	@SuppressWarnings("static-access")
+	static Option myGrepableOutput = OptionBuilder.withArgName( "file" )
+		    .hasArg()
+		    .withDescription(  "grepable output file" )
+		    .create( GREP_OUTPUT );
+	
+	@SuppressWarnings("static-access")
 	static Option myOffsetOption = OptionBuilder.withArgName( "offset" )
 		    .hasArg()
 		    .withDescription(  "start at given offset" )
 		    .create( START_OFFSET );
 	
+	@SuppressWarnings("static-access")
+	static Option myByFilenameOption = OptionBuilder.withArgName( "file" )
+		    .hasArg()
+		    .withDescription(  "listing key-filename hits on a single line" )
+		    .create( BY_FILENAME_OUTPUT);
+	
 	public static Options myOptions = new Options().addOption(myBinaryStringFileOption)
 			.addOption(myNumThreadsOption).addOption(myOffsetOption).addOption(myMemDumpFileOption)
-			.addOption(myHelpOption);
+			.addOption(myHelpOption).addOption(myLiveUpdateOption).addOption(myGrepableOutput)
+			.addOption(myByFilenameOption);
 	
 	// Hash Table mapping hash values to key bytes
 	HashMap<Long, BinaryStringInfo> myBinaryStringInfoMap = new HashMap<Long, BinaryStringInfo>();
@@ -81,9 +102,10 @@ public class FindBinaryStrings {
 	ExecutorService myExecutor = null;
 	
 	ArrayList<Future<?>> myThreadFutures = new ArrayList<Future<?>>();
+	private boolean myLiveUpdate = false;
 	
-	public FindBinaryStrings(List<String> binary_strings,
-			String memory_dump_file, Long offset, Integer numThreads) {
+	public JBGrep(List<String> binary_strings,
+			String memory_dump_file, Long offset, Integer numThreads, boolean liveUpdate) {
 		
 		myMemDump = memory_dump_file;
 		myNumThreads = numThreads;
@@ -93,10 +115,11 @@ public class FindBinaryStrings {
 		}
 		myExecutor = Executors.newFixedThreadPool(numThreads);
 		myTargetFiles = Utils.readDirectoryFilenames(myMemDump);
+		myLiveUpdate = liveUpdate;
 	}
 	
-	public FindBinaryStrings(String binary_strings_file,
-			String memory_dump_file, Long offset, Integer numThreads) throws FileNotFoundException {
+	public JBGrep(String binary_strings_file,
+			String memory_dump_file, Long offset, Integer numThreads, boolean liveUpdate) throws FileNotFoundException {
 		myBinaryStringsFile = new File(binary_strings_file);
 		myMemDump = memory_dump_file;
 		myNumThreads = numThreads;
@@ -104,8 +127,13 @@ public class FindBinaryStrings {
 		readBinaryStringsFromFile();
 		myExecutor = Executors.newFixedThreadPool(numThreads);
 		myTargetFiles = Utils.readDirectoryFilenames(myMemDump);
+		myLiveUpdate = liveUpdate;
 	}
-
+	
+	void liveUpdate(String filename, long offset, String key) {
+		String offset_str = UnsignedLong.valueOf(offset).toString(16);
+		System.out.println(String.format("%s %s %s", key, offset_str, filename));
+	}
 	
 	void addBinaryString(String key) {
 		try{
@@ -130,7 +158,7 @@ public class FindBinaryStrings {
 			if (p.isDone()) {
 				myThreadFutures.remove(0);
 			} else {
-				System.out.println(String.format("Waiting on %d threads to complete.", myThreadFutures.size()));
+				//System.out.println(String.format("Waiting on %d threads to complete.", myThreadFutures.size()));
 				try {
 					Thread.sleep(1000);
 				} catch (InterruptedException e) {
@@ -139,15 +167,40 @@ public class FindBinaryStrings {
 				}
 			}
 		}
-		int totalHits = 0, totalFileHits = 0;
+		int totalHits = 0, uniqueKeys = 0;
+		HashSet<String> containedFiles = new HashSet<String>();
+		
 		for (BinaryStringInfo bsi : myBinaryStringInfoMap.values()) {
+			HashSet<String> fileHits = bsi.getFileHits();
+			containedFiles.addAll(fileHits);
+			int t = fileHits.size();
+			if (t > 0) uniqueKeys++;
 			totalHits += bsi.numLocationsHits();
-			totalFileHits += bsi.numFileHits();
+			
 		}
-		System.out.println(String.format("File contains %d hits in %d files", totalHits, totalFileHits));
+		long totalFileHits = containedFiles.size();
+		System.out.println(String.format("File contains %d hits in %d files and %d unique keys", totalHits, totalFileHits, uniqueKeys));
 		myExecutor.shutdown();
 		while (!myExecutor.isTerminated()) {}
 		
+	}
+	
+	public String getGreppableOutput() {
+		ArrayList<String> output = new ArrayList<String>();
+		for (BinaryStringInfo bsi : myBinaryStringInfoMap.values()) {
+			String s = bsi.toGreppableString();
+			if (s.length() > 0) output.add(s);
+		}
+		return StringUtils.join(output, "\n")+"\n";
+	}
+	
+	public String getByFilenameOutput() {
+		ArrayList<String> output = new ArrayList<String>();
+		for (BinaryStringInfo bsi : myBinaryStringInfoMap.values()) {
+			String s = bsi.toByFilenameString();
+			if (s.length() > 0) output.add(s);
+		}
+		return StringUtils.join(output, "\n")+"\n";
 	}
 	
 	void performFileScan(File file) {
@@ -165,17 +218,13 @@ public class FindBinaryStrings {
 		for (long offset = myStartOffset; offset < fileSize; offset += chunkSz) {
 			Runnable cp = null;
 			if (offset + chunkSz > fileSize) {
-				cp = new ChunkProcessor(file, offset, fileSize - offset, myBinaryStringInfoMap, Utils.DefaultHasher());
+				cp = new ChunkProcessor(file, offset, fileSize - offset, myBinaryStringInfoMap, Utils.DefaultHasher(), myLiveUpdate);
 			} else {
-				cp = new ChunkProcessor(file, offset, chunkSz, myBinaryStringInfoMap, Utils.DefaultHasher());
+				cp = new ChunkProcessor(file, offset, chunkSz, myBinaryStringInfoMap, Utils.DefaultHasher(), myLiveUpdate);
 			}
 			
-			if (cp != null){
-				Future<?> p = myExecutor.submit(cp);
-				myThreadFutures.add(p);
-			} else {
-				System.err.println(String.format("Unable to initialize the file scan for %s", file.getAbsolutePath()));
-			}
+			Future<?> p = myExecutor.submit(cp);
+			myThreadFutures.add(p);
 				
 		}
 	}
@@ -205,19 +254,21 @@ public class FindBinaryStrings {
 	}
 	
 	public static void main(String[] args) throws FileNotFoundException {
-		FindBinaryStrings fbs = null;		
+		JBGrep fbs = null;		
 		CommandLineParser parser = new DefaultParser();
 		CommandLine cli;
 		String binary_strings_file = null,
 			   memory_dump_file = null, 
 			   num_scanning_threads = "1",
 			   offset_start = "0";
+		boolean liveUpdate = false;
 		try {
-			cli = parser.parse(FindBinaryStrings.getOptions(), args);
+			cli = parser.parse(JBGrep.getOptions(), args);
 			binary_strings_file = cli.hasOption(BINARY_STRING_FILE) ? cli.getOptionValue(BINARY_STRING_FILE) : null;
 			memory_dump_file = cli.hasOption(BINARY_FILE) ? cli.getOptionValue(BINARY_FILE) : null;
 			if (cli.hasOption(NUM_THREADS)) num_scanning_threads =  cli.getOptionValue(NUM_THREADS);
 			if (cli.hasOption(START_OFFSET)) offset_start = cli.getOptionValue(START_OFFSET);
+			if (cli.hasOption(LIVE_UPDATE)) liveUpdate = true;
 
 		} catch (ParseException e) {
 			
@@ -227,7 +278,7 @@ public class FindBinaryStrings {
 		
 		if (cli.hasOption(HELP_ME)) {
 			HelpFormatter hf = new HelpFormatter();
-			hf.printHelp("jbgrep", FindBinaryStrings.getOptions());
+			hf.printHelp("jbgrep", JBGrep.getOptions());
 			return;
 		} else if (!cli.hasOption(BINARY_FILE)) {
 			System.err.println(String.format("jbgrep error: %s is required.", BINARY_FILE));
@@ -238,16 +289,26 @@ public class FindBinaryStrings {
 		Long offset = Utils.tryParseHexLongNumber(offset_start);
 
 		if (binary_strings_file != null) {
-			fbs = new FindBinaryStrings(binary_strings_file,
-					memory_dump_file, offset, numThreads);			
+			fbs = new JBGrep(binary_strings_file,
+					memory_dump_file, offset, numThreads, liveUpdate);			
 		}else if (!cli.getArgList().isEmpty()){
-			fbs = new FindBinaryStrings(cli.getArgList(),
-					memory_dump_file, offset, numThreads);
+			fbs = new JBGrep(cli.getArgList(),
+					memory_dump_file, offset, numThreads, liveUpdate);
 		}
 		
 		if (fbs != null) {
 			fbs.executeFileScans();
+			if (cli.hasOption(GREP_OUTPUT)) {
+				File f = new File (cli.getOptionValue(GREP_OUTPUT));
+				Utils.writeOutputFile(f, fbs.getGreppableOutput());
+			}
+			if (cli.hasOption(BY_FILENAME_OUTPUT)) {
+				File f = new File (cli.getOptionValue(BY_FILENAME_OUTPUT));
+				Utils.writeOutputFile(f, fbs.getByFilenameOutput());
+			}
 		}
 	}
+
+	
 
 }

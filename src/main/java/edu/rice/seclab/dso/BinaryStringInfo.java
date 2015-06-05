@@ -38,8 +38,7 @@ public class BinaryStringInfo {
 
 	public boolean matchAdd(byte[] bytes, int bufOff, String filename, long offset) {
 		if (myHashFn.match(bytes, bufOff, myKeyBytes)) {
-			addFileOffset(filename, offset);
-			return true;
+			return addFileOffset(filename, offset);
 		}
 		return false;
 	}
@@ -88,42 +87,66 @@ public class BinaryStringInfo {
 		return myKeyBytes;
 	}
 	
-	public void addFileOffset(String filename, Long fileoffset) {
+	public boolean addFileOffset(String filename, Long fileoffset) {
+		boolean added = false;
 		synchronized (myLocations) {
+			
 			if (!myLocations.containsKey(filename)) {
 				myLocations.put(filename, new HashSet<String>());
 			}
-			myLocations.get(filename).add(Utils.unsigned_long_str(fileoffset.longValue()));			
+			String offset = Utils.unsigned_long_xstr(fileoffset.longValue());
+			if (!myLocations.get(filename).contains(offset)){
+				myLocations.get(filename).add(offset);
+				added = true;
+			}
+							
 		}
+		return added;
 	}
 	
 	public ArrayList<String> grepableFormatList() {
+		HashSet<String> _results = new HashSet<String>();
 		ArrayList<String> results = new ArrayList<String>();
 		synchronized (myLocations) {
 			for (String filename : myLocations.keySet()) {
 				for (String location : myLocations.get(filename)) {
-					results.add(String.format("%s: %s %s", filename, location, myKeyValue));
+					_results.add(String.format("%s: %s %s", filename, location, myKeyValue));
 				}
 			}
 		}
+		results.addAll(_results);
 		return results;
 	}
 	
 	public ArrayList<String> accumulateFileLocations() {
-		ArrayList<String> results = new ArrayList<String>();
+		HashSet<String> _results = new HashSet<String>();
+		//
 		synchronized (myLocations) {
 			for (String filename : myLocations.keySet()) {
-				results.add(String.format("%s %s:%s", myKeyValue, filename, StringUtils.join(myLocations.get(filename), ", ")));
+				_results.add(String.format("%s %s: \"%s\"", myKeyValue, filename, StringUtils.join(myLocations.get(filename), ", ")));
 			}
 		}
+		ArrayList<String> results = new ArrayList<String>();
+		results.addAll(_results);
 		return results;
 	}
 		
 	public String toGreppableString(){
+		if (numFileHits() == 0) return new String("");
 		return StringUtils.join(grepableFormatList(), "\n");
 	}
 	
 	public String toByFilenameString(){
-		return StringUtils.join(accumulateFileLocations	(), "\n");
+		if (numFileHits() == 0) return new String("");
+		return StringUtils.join(accumulateFileLocations(), "\n");
+	}
+
+	public HashSet<String> getFileHits() {
+		HashSet<String> res = new HashSet<String>();
+		if (myLocations.isEmpty()) return res;
+		for (String filename : myLocations.keySet()) {
+			res.add(filename);
+		}
+		return res;
 	}
 }

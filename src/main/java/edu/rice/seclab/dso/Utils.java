@@ -1,6 +1,11 @@
 package edu.rice.seclab.dso;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -10,7 +15,7 @@ import com.google.common.primitives.UnsignedLong;
 
 
 public class Utils {
-	
+	private static Boolean LOCK_TRICK = false;
 	public static First64BitsKey FIRST_64_BITS_HASH = First64BitsKey.getInstance();
 	
 	public static IHashFunction DefaultHasher() {
@@ -20,6 +25,11 @@ public class Utils {
 	public static String unsigned_long_str (long val) {
 		return UnsignedLong.valueOf(val).toString();
 	}
+	
+	public static String unsigned_long_xstr (long val) {
+		return UnsignedLong.valueOf(val).toString(16);
+	}
+	
 	public static Long first64bits (byte [] x) throws Exception {
 		if (x.length < 8) return null;
 		return bytesToLong_be(x, 0);	
@@ -133,6 +143,26 @@ public class Utils {
 		}
 		return resultFiles;
 		
+	}
+
+	public static void foundKey(String key, String myFilename, long offset) {
+		String offset_str = unsigned_long_xstr(offset);
+		synchronized (LOCK_TRICK) {
+			System.out.println(String.format("%s: %s %s", key, myFilename, offset_str));
+		}
+	}
+
+	public static void writeOutputFile(File f, String greppableOutput) {
+		Writer writer = null;
+		try {
+		    writer = new BufferedWriter(new OutputStreamWriter(
+		          new FileOutputStream(f), "utf-8"));
+		    writer.write(greppableOutput);
+		} catch (IOException ex) {
+			ex.printStackTrace();
+		} finally {
+		   try {writer.close();} catch (Exception ex) {/*ignore*/}
+		}		
 	}
 
 }
