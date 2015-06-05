@@ -7,8 +7,8 @@ public class First64BitsKey implements IHashFunction{
 	
 	private First64BitsKey(){}
 	
-	public Long executeHash(byte[] data) {
-		return Utils.first64bits(data);
+	public Long executeHash(byte[] data) throws Exception {
+		return executeHash(data, 0);
 	}
 
 	public long getRequiredBytes() {
@@ -26,12 +26,16 @@ public class First64BitsKey implements IHashFunction{
 	public boolean match(byte[] lhs, int lhs_offset, byte[] rhs) {
 		boolean _match = false;
 		if (lhs.length < rhs.length || lhs.length < rhs.length+lhs_offset ) return _match;
-		for (int i = lhs_offset; i < rhs.length; i++){
-			_match = rhs[i] == lhs[i];
+		for (int i = 0; i < rhs.length; i++){
+			_match = rhs[i] == lhs[lhs_offset+i];
 			if (!_match) break;
 		}
 		return _match;
 
+	}
+
+	public Long executeHash(byte[] data, long offset) throws Exception {
+		return Utils.first64bits(data, offset);
 	}
 
 }

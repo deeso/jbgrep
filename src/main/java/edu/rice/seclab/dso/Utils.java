@@ -20,12 +20,16 @@ public class Utils {
 	public static String unsigned_long_str (long val) {
 		return UnsignedLong.valueOf(val).toString();
 	}
-	public static Long first64bits (byte [] x) {
+	public static Long first64bits (byte [] x) throws Exception {
 		if (x.length < 8) return null;
-		return bytesToLong_be(x);
-		
+		return bytesToLong_be(x, 0);	
 	}
-	public static Long first64bits (String binaryString) {
+	
+	public static Long first64bits (byte [] x, long offset) throws Exception {
+		if (x.length < 8) return null;
+		return bytesToLong_be(x, (int)offset);	
+	}
+	public static Long first64bits (String binaryString) throws Exception {
 		byte [] x = unhexlify(binaryString);
 		return first64bits(x);
 	}
@@ -61,29 +65,40 @@ public class Utils {
 	    return data;
 	}
 	
-	public static long bytesToLong_le(byte[] bytes) {
+	public static byte [] getBytesAt(byte[] data, int pos, int len) throws Exception {
+		if (pos + len < data.length) {
+			byte [] tbyte = new byte[len];
+			for(int i = 0; i < len; i++)
+				tbyte[i] = data[pos+i];
+			return tbyte;
+		}
+		throw new Exception("Failed to get subbytes!");
+	}
+	
+	
+	public static long bytesToLong_le(byte[] bytes) throws Exception {
 		int len = Long.BYTES;
 		byte[] tbytes = bytes;
 		if (bytes.length != len)
-			tbytes = new byte[len];
-			for (int i = 0; i < len && i < bytes.length; i++)
-				tbytes[i] = bytes[i];
+			tbytes = getBytesAt(bytes, 0, len);
 		ByteBuffer byteBuffer = ByteBuffer.wrap(tbytes);
         //byteBuffer.flip();//need flip
         byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
         return byteBuffer.getLong();
     }
 	
-	public static long bytesToLong_be(byte[] bytes) {
+	public static Long bytesToLong_be(byte[] bytes, int j) throws Exception {
 		int len = Long.BYTES;
 		byte[] tbytes = bytes;
-		if (bytes.length != len)
-			tbytes = new byte[len];
-			for (int i = 0; i < len && i < bytes.length; i++)
-				tbytes[i] = bytes[i];
+		
+		if (bytes.length != len && j+len < bytes.length) {
+			tbytes = getBytesAt(bytes, j, len);
+		} else if (bytes.length < j+len) {
+			throw new Exception("Unable to hash the current input, not enough bytes");
+		}
 		ByteBuffer byteBuffer = ByteBuffer.wrap(tbytes);
         //byteBuffer.flip();//need flip
-        byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+        byteBuffer.order(ByteOrder.BIG_ENDIAN);
         return byteBuffer.getLong();
     }
 	
@@ -119,4 +134,5 @@ public class Utils {
 		return resultFiles;
 		
 	}
+
 }

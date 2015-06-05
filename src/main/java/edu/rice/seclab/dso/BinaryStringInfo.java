@@ -16,11 +16,13 @@ public class BinaryStringInfo {
 	private int myKeyLen;
 	IHashFunction myHashFn = null;
 	
-	public BinaryStringInfo(String binaryString, IHashFunction hashFn) {
+	public BinaryStringInfo(String binaryString, IHashFunction hashFn) throws Exception {
+		myHashFn = hashFn;
 		myKeyValue = binaryString;
-		myKeyBytes = getKeyBytes();
+		myKeyBytes = Utils.unhexlify(binaryString);
 		myKeyLen = myKeyBytes.length;
 		myHash = myHashFn.executeHash(myKeyBytes);
+		
 	}
 	
 //	public BinaryStringInfo(String binaryString, byte[] keyBytes, long hash) {
@@ -40,6 +42,34 @@ public class BinaryStringInfo {
 			return true;
 		}
 		return false;
+	}
+	
+	public boolean hasHits() {
+		return !myLocations.isEmpty();
+	}
+
+	public int numFileHits() {
+		return myLocations.size();
+	}
+	
+	public boolean inFile(String filename) {
+		return myLocations.containsKey(filename);
+	}
+	
+	public int numLocationsHits() {
+		int total = 0;
+		for (String filename : myLocations.keySet()) {
+			total += numLocationsHits(filename);
+		}
+		return total;
+	}
+	public int numLocationsHits(String fileName) {
+		if (myLocations.containsKey(fileName)) {
+			synchronized (myLocations) {
+				return myLocations.get(fileName).size();
+			}
+		}
+		return 0;
 	}
 	
 	public Long getHash() {

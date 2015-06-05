@@ -139,6 +139,14 @@ public class FindBinaryStrings {
 				}
 			}
 		}
+		int totalHits = 0, totalFileHits = 0;
+		for (BinaryStringInfo bsi : myBinaryStringInfoMap.values()) {
+			totalHits += bsi.numLocationsHits();
+			totalFileHits += bsi.numFileHits();
+		}
+		System.out.println(String.format("File contains %d hits in %d files", totalHits, totalFileHits));
+		myExecutor.shutdown();
+		while (!myExecutor.isTerminated()) {}
 		
 	}
 	
@@ -161,10 +169,12 @@ public class FindBinaryStrings {
 			} else {
 				cp = new ChunkProcessor(file, offset, chunkSz, myBinaryStringInfoMap, Utils.DefaultHasher());
 			}
-			System.err.println(String.format("Unable to initialize the file scan for %s", file.getAbsolutePath()));
+			
 			if (cp != null){
 				Future<?> p = myExecutor.submit(cp);
 				myThreadFutures.add(p);
+			} else {
+				System.err.println(String.format("Unable to initialize the file scan for %s", file.getAbsolutePath()));
 			}
 				
 		}
@@ -235,8 +245,8 @@ public class FindBinaryStrings {
 					memory_dump_file, offset, numThreads);
 		}
 		
-		if (fbs == null) {
-			
+		if (fbs != null) {
+			fbs.executeFileScans();
 		}
 	}
 
