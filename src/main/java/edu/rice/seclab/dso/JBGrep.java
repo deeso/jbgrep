@@ -56,7 +56,7 @@ public class JBGrep {
 	@SuppressWarnings("static-access")
 	static Option myNumThreadsOption = OptionBuilder.withArgName( "num_threads" )
 		    .hasArg()
-		    .withDescription(  "number of threads for scanning" )
+		    .withDescription(  "number of threads for scanning (specified in hex), 1 is the default" )
 		    .create( NUM_THREADS );
 	
 	@SuppressWarnings("static-access")
@@ -74,7 +74,7 @@ public class JBGrep {
 	@SuppressWarnings("static-access")
 	static Option myOffsetOption = OptionBuilder.withArgName( "offset" )
 		    .hasArg()
-		    .withDescription(  "start at given offset" )
+		    .withDescription(  "start at given offset (specified in hex), 0 is Default" )
 		    .create( START_OFFSET );
 	
 	@SuppressWarnings("static-access")
@@ -281,7 +281,7 @@ public class JBGrep {
 			hf.printHelp("jbgrep", JBGrep.getOptions());
 			return;
 		} else if (!cli.hasOption(BINARY_FILE)) {
-			System.err.println(String.format("jbgrep error: %s is required.", BINARY_FILE));
+			System.err.println(String.format("ERROR: %s parameter is required to run jbgrep.", BINARY_FILE));
 			return;
 		}
 		
@@ -294,6 +294,9 @@ public class JBGrep {
 		}else if (!cli.getArgList().isEmpty()){
 			fbs = new JBGrep(cli.getArgList(),
 					memory_dump_file, offset, numThreads, liveUpdate);
+		} else {
+			System.err.println(String.format("ERROR: %s list of binary strings is required or specify binary strings as parameters.", BINARY_STRING_FILE));
+			return;			
 		}
 		
 		if (fbs != null) {

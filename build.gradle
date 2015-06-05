@@ -13,18 +13,9 @@ task fatJar(type: Jar) {
     with jar
     manifest {
         attributes 'Implementation-Title': 'JBGrep',
-                   'Implementation-Version': version,
                    'Main-Class' : 'edu.rice.seclab.dso.JBGrep'
     }
-} 
-
-
-//jar {
-//    manifest {
-//        attributes 'Implementation-Title': 'jbgrep',
-//                   'Implementation-Version': version
-//    }
-//}
+}
 
 repositories {
     mavenCentral()
