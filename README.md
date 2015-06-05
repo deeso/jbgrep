@@ -20,9 +20,12 @@ usage: jbgrep
  -byFilenameOutput <file>    listing key-filename hits on a single line
  -grepOutput <file>          grepable output file
  -help                       print the help message
+ -keyCountOutput <file>      output key counts file
  -liveUpdate                 produce a live update on each hit
- -numThreads <num_threads>   number of threads for scanning
- -startOffset <offset>       start at given offset
+ -numThreads <num_threads>   number of threads for scanning (specified in
+                             hex), 1 is the default
+ -startOffset <offset>       start at given offset (specified in hex), 0
+                             is Default
 ```
 
 Example file listing:
