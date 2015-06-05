@@ -5,7 +5,7 @@ apply plugin: 'application'
 
 sourceCompatibility = 1.7
 version = '1.0'
-//mainClassName = 'edu.rice.seclab.dso.JBGrep'
+mainClassName = 'edu.rice.seclab.dso.JBGrep'
 
 task fatJar(type: Jar) {
     baseName = project.name + '-all'
