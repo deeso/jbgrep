@@ -2,9 +2,12 @@
 Java Program that takes a binary string list, a memory dump, and scans the dump for those strings.
 
 ## Build instructions
-0) Builds with Java 8 and Eclipse Luna and Ubuntu 15.04, all others YMMV.
+0) Builds with Java 8 in Eclipse Luna or with Gradle 2.3 on Ubuntu 15.04, all others YMMV.
+
 1) Install gradle 2.3, 2.4 or Eclipse with gradle plugins
+
 2) On Linux CLI, cd into the project directory and execute ```gradle clean build fatJar```, and fini
+
 3) In Eclipse, right-click on the project, ```Grade->Tasks Quick Launcher```, type in ```fatJar```, and fini.
 
 Overall, this utility will take a list of binary strings from a file
