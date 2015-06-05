@@ -10,6 +10,7 @@ Java Program that takes a binary string list, a memory dump, and scans the dump 
 
 3) In Eclipse, right-click on the project, ```Grade->Tasks Quick Launcher```, type in ```fatJar```, and fini.
 
+## How to use it
 Overall, this utility will take a list of binary strings from a file
 ```
 java -jar build/libs/jbgrep-all-1.0.jar -help
@@ -38,19 +39,21 @@ EC9F2208424835069EE855E9838C15E454D41A5B02BE17B5B16B4A8FFE96D40F71108A137FC47A7D
 0888BDC0A34B9E86D951AA4E07F0C152F0046B43621D5F461BC18BA34C5A9891
 ```
 
-Example usages:
-Scan a binary file for strings found in *jbgrep_strings.txt* using 21 threads in *java-work.dump*.
+### Example usages
+##### Scan a binary file for strings found in *jbgrep_strings.txt* using 21 threads in *java-work.dump*.
 ```
 # java -jar jbgrep-all-1.0.jar -binaryFile java-work.dump -numThreads 17 -binaryStrings jbgrep_strings.txt
 File contains 1061 hits in 1 files and 623 unique keys
 ```
-Scan a binary file for the string specified on the *CLI* using 21 threads in *java-work.dump*
+##### Scan a binary file for the string specified on the *CLI* using 21 threads in *java-work.dump*
 ```
 # java -jar jbgrep-all-1.0.jar -binaryFile java-work.dump -numThreads 17 5257B22F18BC472CCF0C5D2C706E9E9227B3FA8AAB3DB7A2C4A7A9B44CD1EF6702DF4AC72BD9A0447571B45A0756603A
 File contains 1 hits in 1 files and 1 unique keys
 ```
 
-Thats fine, but I am sure you want output, right?  Well using `-liveUpdate`, `-grepOutput <file>`, and/or `-byFilenameOutput <file>` will give output in the following manner:
+##### Scan a binary file for the string specified on the *CLI* using 21 threads in *java-work.dump* and outputting stuff in places.  
+
+Using `-liveUpdate`, `-grepOutput <file>`, and/or `-byFilenameOutput <file>` will give output in the following manner:
 
 ```
 # java -jar jbgrep-all-1.0.jar -binaryFile java-work.dump -numThreads 17 -binaryStrings jbgrep_strings.txt -grepOutput /tmp/test.grep -byFilenameOutput /tmp/test.fnames
