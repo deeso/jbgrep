@@ -148,7 +148,7 @@ public class JBGrep {
 	
 	
 	void executeFileScans() {
-		System.out.println("Starting the binary string search");
+		//System.out.println("Starting the binary string search");
 		for (File file : myTargetFiles) {
 			performFileScan(file);
 		}
