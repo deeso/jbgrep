@@ -30,6 +30,7 @@ import com.google.common.primitives.UnsignedLong;
 @SuppressWarnings("deprecation")
 public class JBGrep {
 	ArrayList<File> myTargetFiles = null;
+	public static final String KEY_COUNT_OUTPUT = "keyCountOutput";
 	public static final String BINARY_FILE = "binaryFile";
 	public static final String LIVE_UPDATE = "liveUpdate";
 	public static final String GREP_OUTPUT = "grepOutput";
@@ -66,6 +67,12 @@ public class JBGrep {
 		    .create( BINARY_FILE );
 	
 	@SuppressWarnings("static-access")
+	static Option myKeyCountFileOption = OptionBuilder.withArgName( "file" )
+		    .hasArg()
+		    .withDescription(  "output key counts file" )
+		    .create( KEY_COUNT_OUTPUT );
+	
+	@SuppressWarnings("static-access")
 	static Option myGrepableOutput = OptionBuilder.withArgName( "file" )
 		    .hasArg()
 		    .withDescription(  "grepable output file" )
@@ -86,7 +93,7 @@ public class JBGrep {
 	public static Options myOptions = new Options().addOption(myBinaryStringFileOption)
 			.addOption(myNumThreadsOption).addOption(myOffsetOption).addOption(myMemDumpFileOption)
 			.addOption(myHelpOption).addOption(myLiveUpdateOption).addOption(myGrepableOutput)
-			.addOption(myByFilenameOption);
+			.addOption(myByFilenameOption).addOption(myKeyCountFileOption);
 	
 	// Hash Table mapping hash values to key bytes
 	HashMap<Long, BinaryStringInfo> myBinaryStringInfoMap = new HashMap<Long, BinaryStringInfo>();
@@ -203,6 +210,17 @@ public class JBGrep {
 		return StringUtils.join(output, "\n")+"\n";
 	}
 	
+	public String getByCountsOutput() {
+		ArrayList<String> output = new ArrayList<String>();
+		for (BinaryStringInfo bsi : myBinaryStringInfoMap.values()) {
+			int numHits = bsi.numLocationsHits();
+			if (numHits == 0) continue;
+			String s = String.format("%s %x", bsi.getKey(), numHits);
+			if (s.length() > 0) output.add(s);
+		}
+		return StringUtils.join(output, "\n")+"\n";
+	}
+	
 	void performFileScan(File file) {
 		
 		if (myBinaryStringInfoMap.isEmpty() || 
@@ -308,6 +326,10 @@ public class JBGrep {
 			if (cli.hasOption(BY_FILENAME_OUTPUT)) {
 				File f = new File (cli.getOptionValue(BY_FILENAME_OUTPUT));
 				Utils.writeOutputFile(f, fbs.getByFilenameOutput());
+			}
+			if (cli.hasOption(KEY_COUNT_OUTPUT)) {
+				File f = new File (cli.getOptionValue(KEY_COUNT_OUTPUT));
+				Utils.writeOutputFile(f, fbs.getByCountsOutput());
 			}
 		}
 	}
