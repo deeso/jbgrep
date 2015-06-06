@@ -17,8 +17,17 @@ import com.google.common.primitives.UnsignedLong;
 public class Utils {
 	private static Boolean LOCK_TRICK = false;
 	public static First64BitsKey FIRST_64_BITS_HASH = First64BitsKey.getInstance();
+	public static First32BitsKey FIRST_32_BITS_HASH = First32BitsKey.getInstance();
 	
 	public static IHashFunction DefaultHasher() {
+		return FIRST_64_BITS_HASH;
+	}
+	
+	public static IHashFunction get32BitHasher() {
+		return FIRST_32_BITS_HASH;
+	}
+	
+	public static IHashFunction get64BitHasher() {
 		return FIRST_64_BITS_HASH;
 	}
 	
@@ -43,6 +52,20 @@ public class Utils {
 		byte [] x = unhexlify(binaryString);
 		return first64bits(x);
 	}
+
+	public static Long first32bits (byte [] x) throws Exception {
+		if (x.length < 4) return null;
+		return bytesToInt_be(x, 0);	
+	}
+	
+	public static Long first32bits (byte [] x, long offset) throws Exception {
+		if (x.length < 4) return null;
+		return bytesToInt_be(x, (int)offset);	
+	}
+	public static Long first32bits (String binaryString) throws Exception {
+		byte [] x = unhexlify(binaryString);
+		return first32bits(x);
+	}
 	
 	public static long ComputeHash(String data)
 	{
@@ -51,10 +74,20 @@ public class Utils {
 	
 	public static long ComputeHash(byte[] data)
 	{
+		return ComputeHash(data, 0, data.length);
+	}
+	public static Long ComputeHash(byte[] data, long offset) {
+		return ComputeHash(data, offset, data.length);
+	}
+
+	public static long ComputeHash(byte[] data, long offset, long end)
+	{
 		long p = 16777619;
 		long hash = 2166136261L;
+		
+		end = data.length < end ? data.length : end;
 
-		for (int i = 0; i < data.length; i++)
+		for (int i = (int) offset; i < end; i++)
 			hash = (hash ^ data[i]) * p;
 
 		hash += hash << 13;
@@ -97,8 +130,34 @@ public class Utils {
         return byteBuffer.getLong();
     }
 	
+	public static long bytesToInt_le(byte[] bytes) throws Exception {
+		int len = Integer.BYTES;
+		byte[] tbytes = bytes;
+		if (bytes.length != len)
+			tbytes = getBytesAt(bytes, 0, len);
+		ByteBuffer byteBuffer = ByteBuffer.wrap(tbytes);
+        //byteBuffer.flip();//need flip
+        byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+        return byteBuffer.getLong();
+    }
+	
 	public static Long bytesToLong_be(byte[] bytes, int j) throws Exception {
 		int len = Long.BYTES;
+		byte[] tbytes = bytes;
+		
+		if (bytes.length != len && j+len < bytes.length) {
+			tbytes = getBytesAt(bytes, j, len);
+		} else if (bytes.length < j+len) {
+			throw new Exception("Unable to hash the current input, not enough bytes");
+		}
+		ByteBuffer byteBuffer = ByteBuffer.wrap(tbytes);
+        //byteBuffer.flip();//need flip
+        byteBuffer.order(ByteOrder.BIG_ENDIAN);
+        return byteBuffer.getLong();
+    }
+	
+	public static Long bytesToInt_be(byte[] bytes, int j) throws Exception {
+		int len = Integer.BYTES;
 		byte[] tbytes = bytes;
 		
 		if (bytes.length != len && j+len < bytes.length) {

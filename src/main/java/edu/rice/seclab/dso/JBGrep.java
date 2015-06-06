@@ -110,6 +110,7 @@ public class JBGrep {
 	
 	ArrayList<Future<?>> myThreadFutures = new ArrayList<Future<?>>();
 	private boolean myLiveUpdate = false;
+	IHashFunction hasher = Utils.DefaultHasher();
 	
 	public JBGrep(List<String> binary_strings,
 			String memory_dump_file, Long offset, Integer numThreads, boolean liveUpdate) {
@@ -118,6 +119,12 @@ public class JBGrep {
 		myNumThreads = numThreads;
 		myStartOffset = offset;
 		for (String s : binary_strings) {
+	    	if (s.trim().length() < 16) {
+	    		hasher = Utils.FIRST_32_BITS_HASH;
+	    		break;
+	    	}
+		}
+		for (String s : binary_strings) {	
 			addBinaryString(s);
 		}
 		myExecutor = Executors.newFixedThreadPool(numThreads);
@@ -144,7 +151,7 @@ public class JBGrep {
 	
 	void addBinaryString(String key) {
 		try{
-			BinaryStringInfo bsi = new BinaryStringInfo(key, Utils.DefaultHasher());
+			BinaryStringInfo bsi = new BinaryStringInfo(key, hasher);
 			synchronized (myBinaryStringInfoMap) {
 				myBinaryStringInfoMap.put(bsi.getHash(), bsi);
 			}			
@@ -236,9 +243,9 @@ public class JBGrep {
 		for (long offset = myStartOffset; offset < fileSize; offset += chunkSz) {
 			Runnable cp = null;
 			if (offset + chunkSz > fileSize) {
-				cp = new ChunkProcessor(file, offset, fileSize - offset, myBinaryStringInfoMap, Utils.DefaultHasher(), myLiveUpdate);
+				cp = new ChunkProcessor(file, offset, fileSize - offset, myBinaryStringInfoMap, hasher, myLiveUpdate);
 			} else {
-				cp = new ChunkProcessor(file, offset, chunkSz, myBinaryStringInfoMap, Utils.DefaultHasher(), myLiveUpdate);
+				cp = new ChunkProcessor(file, offset, chunkSz, myBinaryStringInfoMap, hasher, myLiveUpdate);
 			}
 			
 			Future<?> p = myExecutor.submit(cp);
@@ -253,13 +260,17 @@ public class JBGrep {
 	}
 	
 	void readBinaryStringsFromFile () {
+		ArrayList<String> listStrings = new ArrayList<String>();
 		if (myBinaryStringsFile.exists()) {
 			BufferedReader br;
 			try {
 				br = new BufferedReader(new FileReader(myBinaryStringsFile));
 			    for(String line; (line = br.readLine()) != null; ) {
 			        // process the line.
-			    	addBinaryString(line);
+			    	if (line.trim().length() < 16) {
+			    		hasher = Utils.FIRST_32_BITS_HASH;
+			    	}
+			    	listStrings.add(line);
 			    }
 			} catch (FileNotFoundException e) {
 				// this should not happen unless the file is deleted when we start
@@ -268,6 +279,12 @@ public class JBGrep {
 				e.printStackTrace();
 			}			
 		}
+		
+	    for(String line : listStrings) {
+	        // process the line.
+	    	addBinaryString(line);
+	    }
+
 
 	}
 	
