@@ -35,7 +35,7 @@ public class JBGrep {
 	public static final String LIVE_UPDATE = "liveUpdate";
 	public static final String GREP_OUTPUT = "grepOutput";
 	public static final String BY_FILENAME_OUTPUT = "byFilenameOutput";
-	
+	public static final String ENABLE_UNCONSTRAINED_READ = "enableUnconstrainedRead";
 	private static final String START_OFFSET = "startOffset";
 
 	public static final String NUM_THREADS = "numThreads";
@@ -67,6 +67,11 @@ public class JBGrep {
 		    .create( BINARY_FILE );
 	
 	@SuppressWarnings("static-access")
+	static Option myDisableUnconstrainedReadOption = OptionBuilder
+		    .withDescription(  "memory is plentiful, read all a chunk before scanning it (read chunks as needed)" )
+		    .create( ENABLE_UNCONSTRAINED_READ );
+	
+	@SuppressWarnings("static-access")
 	static Option myKeyCountFileOption = OptionBuilder.withArgName( "file" )
 		    .hasArg()
 		    .withDescription(  "output key counts file" )
@@ -93,7 +98,7 @@ public class JBGrep {
 	public static Options myOptions = new Options().addOption(myBinaryStringFileOption)
 			.addOption(myNumThreadsOption).addOption(myOffsetOption).addOption(myMemDumpFileOption)
 			.addOption(myHelpOption).addOption(myLiveUpdateOption).addOption(myGrepableOutput)
-			.addOption(myByFilenameOption).addOption(myKeyCountFileOption);
+			.addOption(myByFilenameOption).addOption(myKeyCountFileOption).addOption(myDisableUnconstrainedReadOption);
 	
 	// Hash Table mapping hash values to key bytes
 	HashMap<Long, BinaryStringInfo> myBinaryStringInfoMap = new HashMap<Long, BinaryStringInfo>();
@@ -111,6 +116,7 @@ public class JBGrep {
 	ArrayList<Future<?>> myThreadFutures = new ArrayList<Future<?>>();
 	private boolean myLiveUpdate = false;
 	IHashFunction hasher = Utils.DefaultHasher();
+	private boolean myUnconstainedMemory;
 	
 	public JBGrep(List<String> binary_strings,
 			String memory_dump_file, Long offset, Integer numThreads, boolean liveUpdate) {
@@ -142,6 +148,9 @@ public class JBGrep {
 		myExecutor = Executors.newFixedThreadPool(numThreads);
 		myTargetFiles = Utils.readDirectoryFilenames(myMemDump);
 		myLiveUpdate = liveUpdate;
+	}
+	private void setUnconstrainedMemory(boolean unconstrainedMemory) {
+		myUnconstainedMemory = unconstrainedMemory;
 	}
 	
 	void liveUpdate(String filename, long offset, String key) {
@@ -247,7 +256,7 @@ public class JBGrep {
 			} else {
 				cp = new ChunkProcessor(file, offset, chunkSz, myBinaryStringInfoMap, hasher, myLiveUpdate);
 			}
-			
+			((ChunkProcessor)cp).setUnconstrainedMemory(myUnconstainedMemory);
 			Future<?> p = myExecutor.submit(cp);
 			myThreadFutures.add(p);
 				
@@ -296,7 +305,7 @@ public class JBGrep {
 			   memory_dump_file = null, 
 			   num_scanning_threads = "1",
 			   offset_start = "0";
-		boolean liveUpdate = false;
+		boolean liveUpdate = false, unconstrainedMemory = false;
 		try {
 			cli = parser.parse(JBGrep.getOptions(), args);
 			binary_strings_file = cli.hasOption(BINARY_STRING_FILE) ? cli.getOptionValue(BINARY_STRING_FILE) : null;
@@ -304,6 +313,7 @@ public class JBGrep {
 			if (cli.hasOption(NUM_THREADS)) num_scanning_threads =  cli.getOptionValue(NUM_THREADS);
 			if (cli.hasOption(START_OFFSET)) offset_start = cli.getOptionValue(START_OFFSET);
 			if (cli.hasOption(LIVE_UPDATE)) liveUpdate = true;
+			if (cli.hasOption(ENABLE_UNCONSTRAINED_READ)) unconstrainedMemory = true;
 
 		} catch (ParseException e) {
 			
@@ -335,6 +345,7 @@ public class JBGrep {
 		}
 		
 		if (fbs != null) {
+			fbs.setUnconstrainedMemory(unconstrainedMemory);
 			fbs.executeFileScans();
 			if (cli.hasOption(GREP_OUTPUT)) {
 				File f = new File (cli.getOptionValue(GREP_OUTPUT));

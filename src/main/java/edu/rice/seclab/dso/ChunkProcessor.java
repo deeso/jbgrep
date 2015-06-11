@@ -22,8 +22,17 @@ public class ChunkProcessor extends Thread {
 	Integer matches = 0;
 	File myFile;
 	private boolean myLiveUpdate = false;
+	private boolean useUnconstrainedReads = true;
 	
-
+	
+	public void setUnconstrainedMemory() {
+		setUnconstrainedMemory(false);
+	}
+	
+	public void setUnconstrainedMemory(boolean v) {
+		useUnconstrainedReads = v;
+	}
+	
 	public ChunkProcessor(File file, long offset, long chunk_size,
 			HashMap<Long, BinaryStringInfo> binaryKInfo, IHashFunction hasher, boolean liveUpdate){
 		myChunkSize = chunk_size;
@@ -46,8 +55,27 @@ public class ChunkProcessor extends Thread {
 			matches += 1;
 		}
 	}
+	private byte[] performUnconstrainedRead() throws IOException {
+		// If the system is not bounded by memory, read everything in and git'r done
+		// Extremely helpful when the file is large and the system is I/O bound
+		// Implemented the change on a running job and saw (several 100%) improvement
+		// in CPU utilization
+		myChunkOffset = 0L;
+		long sz = myChunkSize;//myChunkOffset + CHUNK_SCAN_SIZE < myChunkSize ? CHUNK_SCAN_SIZE : myChunkSize - myChunkOffset;
+
+		fhandle.seek(myBaseOffset + myChunkOffset);
+		byte[] res = new byte[(int) sz];
+		long a_sz = fhandle.read(res);
+		if (a_sz != sz) {
+			System.err.println(String
+					.format("Warning: attempted to read %d bytes but got %d", 
+							sz, a_sz));
+		}
+		return res;
+	}
 
 	private byte[] performRead() throws IOException {
+		// Memory conservative approach.
 		// 1) update the chunk offset for reading data
 		myChunkOffset = myChunkOffset > myMaxKeyLength ? myChunkOffset - myMaxKeyLength + 1 :
 							myChunkOffset;
@@ -66,7 +94,7 @@ public class ChunkProcessor extends Thread {
 	}
 		
 	private void incrementOffset(byte [] data) {
-		myChunkOffset += CHUNK_SCAN_SIZE;
+		myChunkOffset += data.length;
 		//System.out.println(String.format("Incrementing myChunkOffset by %d, points to 0x%08x", CHUNK_SCAN_SIZE, myChunkOffset+myBaseOffset));
 	}
 
@@ -123,7 +151,12 @@ public class ChunkProcessor extends Thread {
 		
 		while (keepRunning) {
 			try {
-				byte[] data = performRead();
+				byte[] data = null;
+				if (useUnconstrainedReads)
+					data = performUnconstrainedRead();
+				else{
+					data = performRead();
+				}
 				performComparisonsOnChunk(data);
 				incrementOffset(data);
 			} catch (IOException e) {
